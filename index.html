@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload and Process Excel File</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        @media print {
+            table {
+                page-break-inside: avoid;
+            }
+            thead {
+                display: table-header-group;
+            }
+            th, td {
+                page-break-inside: avoid;
+                page-break-after: avoid;
+            }
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            font-size: 12px;
+        }
+        td {
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload and Process Excel File</h1>
+    <form id="uploadForm">
+        <label for="freeRooms">Num. of Free rooms: </label>
+        <select id="freeRooms">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+        </select>
+        <br><br>
+        <input type="file" id="fileInput" accept=".xlsx">
+        <input type="submit" value="Upload">
+    </form>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            var fileInput = document.getElementById('fileInput');
+            var file = fileInput.files[0];
+            var freeRooms = document.getElementById('freeRooms').value;
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    var data = new Uint8Array(e.target.result);
+                    var workbook = XLSX.read(data, { type: 'array' });
+                    var sheetName = workbook.SheetNames[0];
+                    var worksheet = workbook.Sheets[sheetName];
+                    var json = XLSX.utils.sheet_to_json(worksheet);
+
+                    // Process data
+                    var processedData = processData(json);
+
+                    // Calculate total City Tax
+                    var totalCityTax = processedData.reduce((sum, row) => sum + parseFloat(row['City Tax']), 0).toFixed(2);
+
+                    // Convert processed data to HTML file
+                    var htmlFileContent = createHtmlFileContent(processedData, totalCityTax, freeRooms);
+                    var blob = new Blob([htmlFileContent], { type: 'text/html;charset=utf-8' });
+                    saveAs(blob, 'processed_data.html');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        function processData(data) {
+            // Create new array for processed data
+            var processedData = [];
+
+            data.forEach(row => {
+                // Skip rows where Status is "Canc"
+                if (row.Status === "Canc") {
+                    return;
+                }
+
+                // Handle empty "Tipo" values
+                if (!row.Tipo) {
+                    row.Tipo = row.Provenienza + ' Virtual Card';
+                }
+
+                // Make "Hotel Collect" bold in "Tipo"
+                if (row.Tipo.includes('Hotel Collect')) {
+                    row.Tipo = '<b>' + row.Tipo + '</b>';
+                }
+
+                // Create new row with desired structure
+                var newRow = {
+                    Camera: '',
+                    'Nome e Cognome': row.Nome + ' ' + row.Cognome,
+                    Persone: parseGuests(row.Ospiti),
+                    Notti: row.Notti,
+                    Prezzo: row.Totale,
+                    Tipo: row.Tipo,
+                    'City Tax': calculateCityTax(parseGuests(row.Ospiti), row.Notti),
+                    'Prezzo Totale': row.Totale + calculateCityTax(parseGuests(row.Ospiti), row.Notti),
+                    Cash: '',
+                    'C.C.': '',
+                    Comments: ''
+                };
+
+                // Handle "virtual card" cases
+                if (newRow.Tipo && (newRow.Tipo.toLowerCase().includes('virtual card') || newRow.Tipo.toLowerCase().includes('expedia collect'))) {
+                    newRow.Prezzo = 0;
+                    newRow['Prezzo Totale'] = calculateCityTax(parseGuests(row.Ospiti), row.Notti);
+                }
+
+                // Round the City Tax and Prezzo Totale to two decimals
+                newRow['City Tax'] = parseFloat(newRow['City Tax']).toFixed(2);
+                newRow['Prezzo Totale'] = parseFloat(newRow['Prezzo Totale']).toFixed(2);
+
+                processedData.push(newRow);
+
+                // Check "N. Camere" and add additional rows if greater than 1
+                var numCamere = parseInt(row['N. Camere']);
+                if (numCamere > 1) {
+                    for (var i = 1; i < numCamere; i++) {
+                        var additionalRow = {
+                            Camera: '',
+                            'Nome e Cognome': row.Nome + ' ' + row.Cognome,
+                            Persone: '',
+                            Notti: '',
+                            Prezzo: '',
+                            Tipo: '',
+                            'City Tax': '',
+                            'Prezzo Totale': '',
+                            Cash: '',
+                            'C.C.': '',
+                            Comments: ''
+                        };
+                        processedData.push(additionalRow);
+                    }
+                }
+            });
+
+            return processedData;
+        }
+
+        function parseGuests(guests) {
+            if (typeof guests === 'string') {
+                return guests.split('+').reduce((sum, value) => sum + parseInt(value.trim()), 0);
+            }
+            return guests;
+        }
+
+        function calculateCityTax(guests, nights) {
+            return Math.min(nights, 5) * guests * 2.4;
+        }
+
+        function createHtmlFileContent(data, totalCityTax, freeRooms) {
+            var header = '<thead><tr>' + Object.keys(data[0]).map(col => {
+                if (col === 'City Tax') {
+                    return `<th style="border: 1px solid black;"><b>${col} ${totalCityTax}</b></th>`;
+                } else {
+                    return `<th style="border: 1px solid black;"><b>${col}</b></th>`;
+                }
+            }).join('') + '</tr></thead>';
+            var rows = data.map(row => '<tr>' + Object.values(row).map(val => `<td style="border: 1px solid black;">${val}</td>`).join('') + '</tr>').join('');
+            var emptyRows = '';
+            for (var i = 0; i < freeRooms; i++) {
+                emptyRows += '<tr>' + Object.keys(data[0]).map(() => '<td style="border: 1px solid black;">&nbsp;</td>').join('') + '</tr>';
+            }
+            var additionalTable1 = `
+                 <table>
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid black;"><b>BUSTA CAPO (Preparato da Receptionist 3)</b></th>
+                            <th style="border: 1px solid black;"><b>Fondo Cassa (Compilato da Receptionist 3)</b></th>
+                            <th style="border: 1px solid black;"><b>Colazione (Compilato da Receptionist 1)</b></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="border: 1px solid black;">Banconote: €</td>
+                            <td style="border: 1px solid black;">Totale Banconote: €</td>
+                            <td style="border: 1px solid black;">Totale Contanti: €</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black;">Monete: €</td>
+                            <td style="border: 1px solid black;">Totale Monete: €</td>
+                            <td style="border: 1px solid black;">Totale Credit Card: €</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black;">Totale BUSTA CAPO: €</td>
+                            <td style="border: 1px solid black;">Totale fondo cassa: €</td>
+                            <td style="border: 1px solid black;">Totale Colazione: €</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `; 
+            var additionalTable2 = `
+                <table> <h3>PER RECEPTIONIST_3. CHIUSURA CASSA ALLE 07:00. NON PRIMA E NON DOPO</h3>
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid black;"><b>INDEX</b></th>
+                            <th style="border: 1px solid black;"><b>Receptionist3_dalle_07:00 alle 08:00</b></th>
+                            <th style="border: 1px solid black;"><b>Receptionist1_____</b></th>
+                            <th style="border: 1px solid black;"><b>Receptionist2_____</b></th>
+                            <th style="border: 1px solid black;"><b>Receptionist3_fino alle 07:00</b></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
+                            <td style="border: 1px solid black;">Rooms:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                            <td style="border: 1px solid black;">Rooms:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                            <td style="border: 1px solid black;">Rooms:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                            <td style="border: 1px solid black;">Rooms:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black;">COLAZIONE sold by the receptionist</td>
+                            <td style="border: 1px solid black;">N Persone:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                            <td style="border: 1px solid black;">N Persone:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                            <td style="border: 1px solid black;">N. Persone:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                            <td style="border: 1px solid black;">Numero Persone:<br>Cash: €<br>C.C: €<br>Total: €</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black;">BAR sold by the receptionist</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black;">CASSA - Total sold by the receptionist</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black;">CASSA TOTALE senza fondo cassa</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                        </tr>
+                        <tr>
+
+                            <td style="border: 1px solid black;">CASSA TOTALE con fondo cassa</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                        </tr>
+ 			<tr>
+                            <td style="border: 1px solid black;">Check that the number is correct</td>
+                            <td style="border: 1px solid black;">Firma Receptionist 1</td>
+                            <td style="border: 1px solid black;">Firma Recep. 2</td>
+                            <td style="border: 1px solid black;">Firma Recep. 3</td>
+                            <td style="border: 1px solid black;">Firma Recep. 1</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            return `<table>${header}<tbody>${rows}${emptyRows}</tbody></table><br><br>${additionalTable1}<br><br>${additionalTable2}`;
+        }
+    </script>
+</body>
+</html>
