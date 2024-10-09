@@ -204,6 +204,8 @@
             for (var i = 0; i < freeRooms; i++) {
                 emptyRows += '<tr>' + Object.keys(data[0]).map(() => '<td style="border: 1px solid black;">&nbsp;</td>').join('') + '</tr>';
             }
+            
+            // Existing tables (including additionalTable1 and additionalTable2)
             var additionalTable1 = `
                  <table>
                     <thead>
@@ -231,7 +233,29 @@
                         </tr>
                     </tbody>
                 </table>
-            `; 
+            `;
+
+            // New 3x3 table
+            var newTable = `
+                <table>
+                    <tr>
+                        <td style="border: 1px solid black;">Altro</td>
+                        <td style="border: 1px solid black;">Cash</td>
+                        <td style="border: 1px solid black;">Credit Card</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid black;">&nbsp;</td>
+                        <td style="border: 1px solid black;">&nbsp;</td>
+                        <td style="border: 1px solid black;">&nbsp;</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid black;">&nbsp;</td>
+                        <td style="border: 1px solid black;">&nbsp;</td>
+                        <td style="border: 1px solid black;">&nbsp;</td>
+                    </tr>
+                </table>
+            `;
+
             var additionalTable2 = `
                 <table> 
                     <h3>PER RECEPTIONIST3. CHIUSURA CASSA ALLE 07:00. NON PRIMA E NON DOPO</h3>
@@ -298,7 +322,7 @@
                     </tbody>
                 </table>
             `;
-            return `<table>${header}<tbody>${rows}${emptyRows}</tbody></table><br><br>${additionalTable1}<br><br>${additionalTable2}`;
+            return `<table>${header}<tbody>${rows}${emptyRows}</tbody></table><br><br>${additionalTable1}<br><br>${newTable}<br><br>${additionalTable2}`;
         }
     </script>
 </body>
