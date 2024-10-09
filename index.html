@@ -80,14 +80,19 @@
                     // Process data
                     var processedData = processData(json);
 
-                    // Calculate total City Tax with handling NaN values
+                    // Calculate total City Tax and total Prezzo Totale
                     var totalCityTax = processedData.reduce((sum, row) => {
                         let cityTax = parseFloat(row['City Tax']);
                         return sum + (isNaN(cityTax) ? 0 : cityTax);
                     }, 0).toFixed(2);
 
+                    var totalPrezzoTotale = processedData.reduce((sum, row) => {
+                        let prezzoTotale = parseFloat(row['Prezzo Totale']);
+                        return sum + (isNaN(prezzoTotale) ? 0 : prezzoTotale);
+                    }, 0).toFixed(2);
+
                     // Convert processed data to HTML file
-                    var htmlFileContent = createHtmlFileContent(processedData, totalCityTax, freeRooms);
+                    var htmlFileContent = createHtmlFileContent(processedData, totalCityTax, totalPrezzoTotale, freeRooms);
                     var blob = new Blob([htmlFileContent], { type: 'text/html;charset=utf-8' });
                     saveAs(blob, 'processed_data.html');
                 };
@@ -184,10 +189,12 @@
             return Math.min(nights, 5) * guests * 2.4;
         }
 
-        function createHtmlFileContent(data, totalCityTax, freeRooms) {
+        function createHtmlFileContent(data, totalCityTax, totalPrezzoTotale, freeRooms) {
             var header = '<thead><tr>' + Object.keys(data[0]).map(col => {
                 if (col === 'City Tax') {
                     return `<th style="border: 1px solid black;"><b>${col} ${totalCityTax}</b></th>`;
+                } else if (col === 'Prezzo Totale') {
+                    return `<th style="border: 1px solid black;"><b>${col} ${totalPrezzoTotale}</b></th>`;
                 } else {
                     return `<th style="border: 1px solid black;"><b>${col}</b></th>`;
                 }
@@ -268,7 +275,15 @@
                         </tr>
                         <tr>
 
-                            <td style="border: 1px solid black;">CASSA TOTALE senza fondo cassa</td>
+                            <td style="border: 1px solid black;">CASSA TOTALE SENZA fondo cassa</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
+                        </tr>
+                        <tr>
+
+                            <td style="border: 1px solid black;">CASSA TOTALE CON fondo cassa</td>
                             <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
                             <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
                             <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
