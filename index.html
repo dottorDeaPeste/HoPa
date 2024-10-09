@@ -80,8 +80,11 @@
                     // Process data
                     var processedData = processData(json);
 
-                    // Calculate total City Tax
-                    var totalCityTax = processedData.reduce((sum, row) => sum + parseFloat(row['City Tax']), 0).toFixed(2);
+                    // Calculate total City Tax with handling NaN values
+                    var totalCityTax = processedData.reduce((sum, row) => {
+                        let cityTax = parseFloat(row['City Tax']);
+                        return sum + (isNaN(cityTax) ? 0 : cityTax);
+                    }, 0).toFixed(2);
 
                     // Convert processed data to HTML file
                     var htmlFileContent = createHtmlFileContent(processedData, totalCityTax, freeRooms);
@@ -112,16 +115,20 @@
                     row.Tipo = '<b>' + row.Tipo + '</b>';
                 }
 
+                // Ensure guests and nights are properly parsed
+                var guests = parseGuests(row.Ospiti);
+                var nights = parseInt(row.Notti) || 0;
+
                 // Create new row with desired structure
                 var newRow = {
                     Camera: '',
                     'Nome e Cognome': row.Nome + ' ' + row.Cognome,
-                    Persone: parseGuests(row.Ospiti),
-                    Notti: row.Notti,
+                    Persone: guests,
+                    Notti: nights,
                     Prezzo: row.Totale,
                     Tipo: row.Tipo,
-                    'City Tax': calculateCityTax(parseGuests(row.Ospiti), row.Notti),
-                    'Prezzo Totale': row.Totale + calculateCityTax(parseGuests(row.Ospiti), row.Notti),
+                    'City Tax': calculateCityTax(guests, nights),
+                    'Prezzo Totale': row.Totale + calculateCityTax(guests, nights),
                     Cash: '',
                     'C.C.': '',
                     Comments: ''
@@ -130,7 +137,7 @@
                 // Handle "virtual card" cases
                 if (newRow.Tipo && (newRow.Tipo.toLowerCase().includes('virtual card') || newRow.Tipo.toLowerCase().includes('expedia collect'))) {
                     newRow.Prezzo = 0;
-                    newRow['Prezzo Totale'] = calculateCityTax(parseGuests(row.Ospiti), row.Notti);
+                    newRow['Prezzo Totale'] = calculateCityTax(guests, nights);
                 }
 
                 // Round the City Tax and Prezzo Totale to two decimals
@@ -168,10 +175,12 @@
             if (typeof guests === 'string') {
                 return guests.split('+').reduce((sum, value) => sum + parseInt(value.trim()), 0);
             }
-            return guests;
+            return guests || 0;
         }
 
         function calculateCityTax(guests, nights) {
+            guests = parseInt(guests) || 0;  // Ensure guests is a valid number
+            nights = parseInt(nights) || 0;  // Ensure nights is a valid number
             return Math.min(nights, 5) * guests * 2.4;
         }
 
@@ -258,15 +267,8 @@
                             <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
                         </tr>
                         <tr>
-                            <td style="border: 1px solid black;">CASSA TOTALE senza fondo cassa</td>
-                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
-                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
-                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
-                            <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
-                        </tr>
-                        <tr>
 
-                            <td style="border: 1px solid black;">CASSA TOTALE con fondo cassa</td>
+                            <td style="border: 1px solid black;">CASSA TOTALE senza fondo cassa</td>
                             <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
                             <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
                             <td style="border: 1px solid black;">Cash: €<br>Credit Card: €<br>Totale: €</td>
