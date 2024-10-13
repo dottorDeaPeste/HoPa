@@ -115,8 +115,10 @@
                     row.Tipo = row.Provenienza + ' Virtual Card';
                 }
 
-                // Make "Hotel Collect" bold in "Tipo"
-                if (row.Tipo.includes('Hotel Collect')) {
+                // Replace "Pagamento dal cliente" with "Hotel Collect" in bold
+                if (row.Tipo.includes('Pagamento dal cliente')) {
+                    row.Tipo = '<b>Hotel Collect</b>';
+                } else if (row.Tipo.includes('Hotel Collect')) {
                     row.Tipo = '<b>' + row.Tipo + '</b>';
                 }
 
