@@ -28,12 +28,6 @@
             padding: 8px;
             text-align: left;
         }
-        th {
-            font-size: 12px;
-        }
-        td {
-            font-size: 10px;
-        }
     </style>
 </head>
 <body>
@@ -63,6 +57,21 @@
         <input type="submit" value="Upload">
     </form>
     <script>
+        // Font size settings (small, medium, large)
+        const fontSizeSettings = {
+            table1: 'large',  // Options: 'small', 'medium', 'large'
+            table2: 'large',
+            table3: 'large',
+            table4: 'large'
+        };
+
+        // Map of font sizes
+        const fontSizeMap = {
+            small: '10px',
+            medium: '12px',
+            large: '14px'
+        };
+
         document.getElementById('uploadForm').addEventListener('submit', function (event) {
             event.preventDefault();
             var fileInput = document.getElementById('fileInput');
@@ -209,7 +218,7 @@
             
             // Existing tables (including additionalTable1 and additionalTable2)
             var additionalTable1 = `
-                 <table>
+                 <table style="font-size: ${fontSizeMap[fontSizeSettings.table2]};">
                     <thead>
                         <tr>
                             <th style="border: 1px solid black;"><b>BUSTA CAPO (Preparato da Receptionist 3)</b></th>
@@ -239,7 +248,7 @@
 
             // New 6x3 table
             var newTable = `
-                <table>
+                <table style="font-size: ${fontSizeMap[fontSizeSettings.table3]};">
                     <tr>
                         <td style="border: 1px solid black;">Altro_____________________________________________</td>
                         <td style="border: 1px solid black;">Cash__</td>
@@ -268,7 +277,7 @@
             `;
 
             var additionalTable2 = `
-                <table> 
+                <table style="font-size: ${fontSizeMap[fontSizeSettings.table4]};"> 
                     <h3>PER RECEPTIONIST3. CHIUSURA CASSA ALLE 07:00. NON PRIMA E NON DOPO</h3>
                     <h4>Cassa: Premere sul tasto numero 2 + MENU + SUB TOTALE 6 volte + TOTALE CONFERMA + CREDITO ESCI 2 volte </h4>
                     <thead>
@@ -333,7 +342,7 @@
                     </tbody>
                 </table>
             `;
-            return `<table>${header}<tbody>${rows}${emptyRows}</tbody></table><br><br>${additionalTable1}<br><br>${newTable}<br><br>${additionalTable2}`;
+            return `<table style="font-size: ${fontSizeMap[fontSizeSettings.table1]};">${header}<tbody>${rows}${emptyRows}</tbody></table><br><br>${additionalTable1}<br><br>${newTable}<br><br>${additionalTable2}`;
         }
     </script>
 </body>
