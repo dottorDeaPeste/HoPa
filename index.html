@@ -1,455 +1,510 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload and Process Excel File</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <style>
-        @media print {
-            table {
-                page-break-inside: avoid;
-            }
-            thead {
-                display: table-header-group;
-            }
-            th, td {
-                page-break-inside: avoid;
-                page-break-after: avoid;
-            }
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        th, td {
-            border: 1px solid black;
-            padding: 8px;
-            text-align: left;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload and Process Excel File</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    @media print {
+      table {
+        page-break-inside: avoid;
+      }
+      thead {
+        display: table-header-group;
+      }
+      th, td {
+        page-break-inside: avoid;
+        page-break-after: avoid;
+      }
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+  </style>
 </head>
 <body>
-    <h1>Upload and Process Excel File</h1>
-    <form id="uploadForm">
-        <label for="freeRooms">Num. of Free rooms: </label>
-        <select id="freeRooms">
-            <option value="0">0</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-            <option value="11">11</option>
-            <option value="12">12</option>
-            <option value="13">13</option>
-            <option value="14">14</option>
-            <option value="15">15</option>
-            <option value="16">16</option>
-            <option value="17">17</option>
-            <option value="18">18</option>
-            <option value="19">19</option>
-            <option value="20">20</option>
-            <option value="21">21</option>
-        </select>
-        <br><br>
-        <input type="file" id="fileInput" accept=".xlsx">
-        <input type="submit" value="Upload">
-    </form>
-    <script>
-        // Font size settings (small, medium, large)
-        const fontSizeSettings = {
-            table1: 'large',  // Options: 'small', 'medium', 'large'
-            table2: 'large',
-            table3: 'large',
-            table4: 'large'
+  <h1>Upload and Process Excel File</h1>
+  <form id="uploadForm">
+    <label for="freeRooms">Num. of Free rooms: </label>
+    <select id="freeRooms">
+      <option value="0">0</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+      <option value="10">10</option>
+      <option value="11">11</option>
+      <option value="12">12</option>
+      <option value="13">13</option>
+      <option value="14">14</option>
+      <option value="15">15</option>
+      <option value="16">16</option>
+      <option value="17">17</option>
+      <option value="18">18</option>
+      <option value="19">19</option>
+      <option value="20">20</option>
+      <option value="21">21</option>
+    </select>
+    <br /><br />
+    <input type="file" id="fileInput" accept=".xlsx"/>
+    <input type="submit" value="Upload" />
+  </form>
+
+  <script>
+    // Font size settings (small, medium, large)
+    const fontSizeSettings = {
+      table1: 'large',  // Options: 'small', 'medium', 'large'
+      table2: 'large',
+      table3: 'large',
+      table4: 'large'
+    };
+
+    // Map of font sizes
+    const fontSizeMap = {
+      small: '10px',
+      medium: '12px',
+      large: '20px'
+    };
+
+    document.getElementById('uploadForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      var fileInput = document.getElementById('fileInput');
+      var file = fileInput.files[0];
+      var freeRooms = document.getElementById('freeRooms').value;
+      if (file) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var data = new Uint8Array(e.target.result);
+          var workbook = XLSX.read(data, { type: 'array' });
+          var sheetName = workbook.SheetNames[0];
+          var worksheet = workbook.Sheets[sheetName];
+          var json = XLSX.utils.sheet_to_json(worksheet);
+
+          // Process data
+          var processedData = processData(json);
+
+          // Calculate totals
+          var totalCityTax = processedData.reduce((sum, row) => {
+            let cityTax = parseFloat(row['City Tax']);
+            return sum + (isNaN(cityTax) ? 0 : cityTax);
+          }, 0).toFixed(2);
+
+          var totalPrezzoTotale = processedData.reduce((sum, row) => {
+            let prezzoTotale = parseFloat(row['Prezzo Totale']);
+            return sum + (isNaN(prezzoTotale) ? 0 : prezzoTotale);
+          }, 0).toFixed(2);
+
+          // Convert processed data to HTML file
+          var htmlFileContent = createHtmlFileContent(
+            processedData,
+            totalCityTax,
+            totalPrezzoTotale,
+            freeRooms
+          );
+          var blob = new Blob([htmlFileContent], { type: 'text/html;charset=utf-8' });
+          saveAs(blob, 'processed_data.html');
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    function processData(data) {
+      var processedData = [];
+
+      data.forEach(row => {
+        // Skip rows where Status is "Canc"
+        if (row.Status === "Canc") {
+          return;
+        }
+
+        // 1) Check if 'Tipo' is empty
+        // 2) If 'Provenienza' or 'Tipo' is "be2", handle it as "Hotel Collect"
+        //    otherwise, default to "Provenienza Virtual Card"
+        let tipoTrimmed = (row.Tipo || '').trim().toLowerCase();
+        let provTrimmed = (row.Provenienza || '').trim().toLowerCase();
+
+        if (!row.Tipo) {
+          // If the provenienza is be2, set it as Hotel Collect
+          if (provTrimmed === 'be2') {
+            row.Tipo = 'Hotel Collect';
+          } else {
+            row.Tipo = row.Provenienza + ' Virtual Card';
+          }
+        }
+
+        // Additional check if row.Tipo was explicitly "be2"
+        if (tipoTrimmed === 'be2') {
+          row.Tipo = 'Hotel Collect';
+        }
+
+        // Now apply the existing transformations
+        // Turn "Pagamento dal cliente" => "Hotel Collect" in bold
+        // Turn any existing "Hotel Collect" => <b>Hotel Collect</b>
+        // (We do this after the be2 check above.)
+        if (typeof row.Tipo === 'string') {
+          let lowered = row.Tipo.toLowerCase();
+          if (lowered.includes('pagamento dal cliente')) {
+            row.Tipo = '<b>Hotel Collect</b>';
+          } else if (lowered.includes('hotel collect')) {
+            row.Tipo = '<b>Hotel Collect</b>';
+          }
+        }
+
+        // Parse guests and nights
+        var guests = parseGuests(row.Ospiti);
+        var nights = parseInt(row.Notti) || 0;
+
+        // Prepare new row
+        var newRow = {
+          Camera: '',
+          'Nome e Cognome': (row.Nome || '') + ' ' + (row.Cognome || ''),
+          Persone: guests,
+          Notti: nights,
+          Prezzo: parseFloat(row.Totale) || 0,
+          Tipo: row.Tipo,
+          'City Tax': calculateCityTax(guests, nights),
+          'Prezzo Totale': 0, // We'll compute next line
+          Cash: '',
+          'C.C.': '',
+          Comments: ''
         };
 
-        // Map of font sizes
-        const fontSizeMap = {
-            small: '10px',
-            medium: '12px',
-            large: '20px'
-        };
+        newRow['Prezzo Totale'] = newRow.Prezzo + newRow['City Tax'];
 
-        document.getElementById('uploadForm').addEventListener('submit', function (event) {
-            event.preventDefault();
-            var fileInput = document.getElementById('fileInput');
-            var file = fileInput.files[0];
-            var freeRooms = document.getElementById('freeRooms').value;
-            if (file) {
-                var reader = new FileReader();
-                reader.onload = function (e) {
-                    var data = new Uint8Array(e.target.result);
-                    var workbook = XLSX.read(data, { type: 'array' });
-                    var sheetName = workbook.SheetNames[0];
-                    var worksheet = workbook.Sheets[sheetName];
-                    var json = XLSX.utils.sheet_to_json(worksheet);
+        // If 'Tipo' indicates a virtual card or "expedia collect", set prezzo to 0
+        // (since typically the card is billed by booking/expedia, not the hotel).
+        let tipoLC = (row.Tipo || '').toLowerCase();
+        if (tipoLC.includes('virtual card') || tipoLC.includes('expedia collect')) {
+          newRow.Prezzo = 0;
+          newRow['Prezzo Totale'] = calculateCityTax(guests, nights);
+        }
 
-                    // Process data
-                    var processedData = processData(json);
+        // Round to 2 decimals
+        newRow['City Tax'] = newRow['City Tax'].toFixed(2);
+        newRow['Prezzo Totale'] = newRow['Prezzo Totale'].toFixed(2);
 
-                    // Calculate total City Tax and total Prezzo Totale
-                    var totalCityTax = processedData.reduce((sum, row) => {
-                        let cityTax = parseFloat(row['City Tax']);
-                        return sum + (isNaN(cityTax) ? 0 : cityTax);
-                    }, 0).toFixed(2);
+        processedData.push(newRow);
 
-                    var totalPrezzoTotale = processedData.reduce((sum, row) => {
-                        let prezzoTotale = parseFloat(row['Prezzo Totale']);
-                        return sum + (isNaN(prezzoTotale) ? 0 : prezzoTotale);
-                    }, 0).toFixed(2);
-
-                    // Convert processed data to HTML file
-                    var htmlFileContent = createHtmlFileContent(processedData, totalCityTax, totalPrezzoTotale, freeRooms);
-                    var blob = new Blob([htmlFileContent], { type: 'text/html;charset=utf-8' });
-                    saveAs(blob, 'processed_data.html');
-                };
-                reader.readAsArrayBuffer(file);
-            }
-        });
-
-        function processData(data) {
-            // Create new array for processed data
-            var processedData = [];
-
-            data.forEach(row => {
-                // Skip rows where Status is "Canc"
-                if (row.Status === "Canc") {
-                    return;
-                }
-
-                // Handle empty "Tipo" values
-                if (!row.Tipo) {
-                    row.Tipo = row.Provenienza + ' Virtual Card';
-                }
-
-                // Replace "Pagamento dal cliente" with "Hotel Collect" in bold
-                if (row.Tipo.includes('Pagamento dal cliente')) {
-                    row.Tipo = '<b>Hotel Collect</b>';
-                } else if (row.Tipo.includes('Hotel Collect')) {
-                    row.Tipo = '<b>' + row.Tipo + '</b>';
-                }
-
-                // Ensure guests and nights are properly parsed
-                var guests = parseGuests(row.Ospiti);
-                var nights = parseInt(row.Notti) || 0;
-
-                // Create new row with desired structure
-                var newRow = {
-                    Camera: '',
-                    'Nome e Cognome': row.Nome + ' ' + row.Cognome,
-                    Persone: guests,
-                    Notti: nights,
-                    Prezzo: row.Totale,
-                    Tipo: row.Tipo,
-                    'City Tax': calculateCityTax(guests, nights),
-                    'Prezzo Totale': row.Totale + calculateCityTax(guests, nights),
-                    Cash: '',
-                    'C.C.': '',
-                    Comments: ''
-                };
-
-                // Handle "virtual card" cases
-                if (newRow.Tipo && (newRow.Tipo.toLowerCase().includes('virtual card') || newRow.Tipo.toLowerCase().includes('expedia collect'))) {
-                    newRow.Prezzo = 0;
-                    newRow['Prezzo Totale'] = calculateCityTax(guests, nights);
-                }
-
-                // Round the City Tax and Prezzo Totale to two decimals
-                newRow['City Tax'] = parseFloat(newRow['City Tax']).toFixed(2);
-                newRow['Prezzo Totale'] = parseFloat(newRow['Prezzo Totale']).toFixed(2);
-
-                processedData.push(newRow);
-
-                // Check "N. Camere" and add additional rows if greater than 1
-                var numCamere = parseInt(row['N. Camere']);
-                if (numCamere > 1) {
-                    for (var i = 1; i < numCamere; i++) {
-                        var additionalRow = {
-                            Camera: '',
-                            'Nome e Cognome': row.Nome + ' ' + row.Cognome,
-                            Persone: '',
-                            Notti: '',
-                            Prezzo: '',
-                            Tipo: '',
-                            'City Tax': '',
-                            'Prezzo Totale': '',
-                            Cash: '',
-                            'C.C.': '',
-                            Comments: ''
-                        };
-                        processedData.push(additionalRow);
-                    }
-                }
+        // If "N. Camere" > 1, add blank rows
+        var numCamere = parseInt(row['N. Camere']) || 1;
+        if (numCamere > 1) {
+          for (var i = 1; i < numCamere; i++) {
+            processedData.push({
+              Camera: '',
+              'Nome e Cognome': (row.Nome || '') + ' ' + (row.Cognome || ''),
+              Persone: '',
+              Notti: '',
+              Prezzo: '',
+              Tipo: '',
+              'City Tax': '',
+              'Prezzo Totale': '',
+              Cash: '',
+              'C.C.': '',
+              Comments: ''
             });
-
-            return processedData;
+          }
         }
+      });
 
-        function parseGuests(guests) {
-            if (typeof guests === 'string') {
-                return guests.split('+').reduce((sum, value) => sum + parseInt(value.trim()), 0);
-            }
-            return guests || 0;
+      return processedData;
+    }
+
+    function parseGuests(guests) {
+      if (typeof guests === 'string') {
+        return guests.split('+').reduce((sum, value) => {
+          let num = parseInt(value.trim());
+          return sum + (isNaN(num) ? 0 : num);
+        }, 0);
+      }
+      return parseInt(guests) || 0;
+    }
+
+    function calculateCityTax(guests, nights) {
+      // City tax only applies up to 5 nights, 2.4 per person per night
+      let validNights = Math.min(nights, 5);
+      return validNights * guests * 2.4;
+    }
+
+    function createHtmlFileContent(data, totalCityTax, totalPrezzoTotale, freeRooms) {
+      // Create table header
+      var header = '<thead><tr>' + Object.keys(data[0]).map(col => {
+        if (col === 'City Tax') {
+          return `<th style="border: 1px solid black;"><b>${col} ${totalCityTax}</b></th>`;
+        } else if (col === 'Prezzo Totale') {
+          return `<th style="border: 1px solid black;"><b>${col} ${totalPrezzoTotale}</b></th>`;
+        } else {
+          return `<th style="border: 1px solid black;"><b>${col}</b></th>`;
         }
+      }).join('') + '</tr></thead>';
 
-        function calculateCityTax(guests, nights) {
-            guests = parseInt(guests) || 0;  // Ensure guests is a valid number
-            nights = parseInt(nights) || 0;  // Ensure nights is a valid number
-            return Math.min(nights, 5) * guests * 2.4;
-        }
+      // Create table rows
+      var rows = data.map(row => {
+        return '<tr>' + Object.values(row).map(val => {
+          return `<td style="border: 1px solid black;">${val}</td>`;
+        }).join('') + '</tr>';
+      }).join('');
 
-        function createHtmlFileContent(data, totalCityTax, totalPrezzoTotale, freeRooms) {
-            var header = '<thead><tr>' + Object.keys(data[0]).map(col => {
-                if (col === 'City Tax') {
-                    return `<th style="border: 1px solid black;"><b>${col} ${totalCityTax}</b></th>`;
-                } else if (col === 'Prezzo Totale') {
-                    return `<th style="border: 1px solid black;"><b>${col} ${totalPrezzoTotale}</b></th>`;
-                } else {
-                    return `<th style="border: 1px solid black;"><b>${col}</b></th>`;
-                }
-            }).join('') + '</tr></thead>';
-            var rows = data.map(row => '<tr>' + Object.values(row).map(val => `<td style="border: 1px solid black;">${val}</td>`).join('') + '</tr>').join('');
-            var emptyRows = '';
-            for (var i = 0; i < freeRooms; i++) {
-                emptyRows += '<tr>' + Object.keys(data[0]).map(() => '<td style="border: 1px solid black;">&nbsp;</td>').join('') + '</tr>';
-            }
-            
-            // Existing tables (including additionalTable1)
-            var additionalTable1 = `
-                 <table style="font-size: ${fontSizeMap[fontSizeSettings.table2]};">
-                    <thead>
-                        <tr>
-                            <th style="border: 1px solid black;"><b>BUSTA CAPO (Preparato da Receptionist 3)</b></th>
-                            <th style="border: 1px solid black;"><b>Fondo Cassa (Compilato da Receptionist 3)</b></th>
-                            <th style="border: 1px solid black;"><b>Colazione (Compilato da Receptionist 1)</b></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">Banconote: €</td>
-                            <td style="border: 1px solid black;">Totale Banconote: €</td>
-                            <td style="border: 1px solid black;">Totale Banconote + monete: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">Monete: €</td>
-                            <td style="border: 1px solid black;">Totale Monete: €</td>
-                            <td style="border: 1px solid black;">Totale C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">Totale BUSTA CAPO: €</td>
-                            <td style="border: 1px solid black;">Totale fondo cassa: €</td>
-                            <td style="border: 1px solid black;">Totale Colazione: €</td>
-                        </tr>
-                    </tbody>
-                </table>
-            `;
+      // Add empty rows for freeRooms
+      var emptyRows = '';
+      for (var i = 0; i < freeRooms; i++) {
+        emptyRows += '<tr>' + Object.keys(data[0]).map(() => {
+          return '<td style="border: 1px solid black;">&nbsp;</td>';
+        }).join('') + '</tr>';
+      }
 
-            // New 6x3 table
-            var newTable = `
-                <table style="font-size: ${fontSizeMap[fontSizeSettings.table3]};">
-                    <tr>
-                        <td style="border: 1px solid black;">Altro_____________________________________________</td>
-                        <td style="border: 1px solid black;">Cash__</td>
-                        <td style="border: 1px solid black;">Credit Card</td>
-                        <td style="border: 1px solid black;">Altro_____________________________________________</td>
-                        <td style="border: 1px solid black;">Cash__</td>
-                        <td style="border: 1px solid black;">Credit Card</td>
-                    </tr>
-                    <tr>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                    </tr>
-                    <tr>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                        <td style="border: 1px solid black;">&nbsp;</td>
-                    </tr>
-                </table>
-            `;
+      // Additional sections (Busta Capo, etc.)
+      var additionalTable1 = `
+        <table style="font-size: ${fontSizeMap[fontSizeSettings.table2]};">
+          <thead>
+            <tr>
+              <th style="border: 1px solid black;"><b>BUSTA CAPO (Preparato da Receptionist 3)</b></th>
+              <th style="border: 1px solid black;"><b>Fondo Cassa (Compilato da Receptionist 3)</b></th>
+              <th style="border: 1px solid black;"><b>Colazione (Compilato da Receptionist 1)</b></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">Banconote: €</td>
+              <td style="border: 1px solid black;">Totale Banconote: €</td>
+              <td style="border: 1px solid black;">Totale Banconote + monete: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">Monete: €</td>
+              <td style="border: 1px solid black;">Totale Monete: €</td>
+              <td style="border: 1px solid black;">Totale C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">Totale BUSTA CAPO: €</td>
+              <td style="border: 1px solid black;">Totale fondo cassa: €</td>
+              <td style="border: 1px solid black;">Totale Colazione: €</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
 
-            // Separate tables for each shift
-            var shiftTables = `
-                <h3>Receptionist Shifts</h3>
-                <h4>Receptionist3_dalle_07:00 alle 08:00</h4>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">COLAZIONE sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">BAR sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
-                            <td style="border: 1px solid black;">BANCONOTE: €________</td>
-                            <td style="border: 1px solid black;">MONETE: €___________</td>
-                            <td style="border: 1px solid black;">TOTALE: €_____________</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">Firma Receptionist 1____________________</td>
-                        </tr>
-                    </tbody>
-                </table>
+      var newTable = `
+        <table style="font-size: ${fontSizeMap[fontSizeSettings.table3]};">
+          <tr>
+            <td style="border: 1px solid black;">Altro_____________________________________________</td>
+            <td style="border: 1px solid black;">Cash__</td>
+            <td style="border: 1px solid black;">Credit Card</td>
+            <td style="border: 1px solid black;">Altro_____________________________________________</td>
+            <td style="border: 1px solid black;">Cash__</td>
+            <td style="border: 1px solid black;">Credit Card</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+            <td style="border: 1px solid black;">&nbsp;</td>
+          </tr>
+        </table>
+      `;
 
-                <h4>Receptionist1</h4>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">COLAZIONE sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">BAR sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTAL sold by ALL receptionists</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
-                            <td style="border: 1px solid black;">BANCONOTE: €________</td>
-                            <td style="border: 1px solid black;">MONETE: €___________</td>
-                            <td style="border: 1px solid black;">TOTALE: €_____________</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">Firma Receptionist 2____________________</td>
-                        </tr>
-                    </tbody>
-                </table>
+      // Separate tables for each shift
+      var shiftTables = `
+        <h3>Receptionist Shifts</h3>
+        <h4>Receptionist3_dalle_07:00 alle 08:00</h4>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">COLAZIONE sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">BAR sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
+              <td style="border: 1px solid black;">BANCONOTE: €________</td>
+              <td style="border: 1px solid black;">MONETE: €___________</td>
+              <td style="border: 1px solid black;">TOTALE: €_____________</td>
+            </tr>
+          </tbody>
+        </table>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">Firma Receptionist 1____________________</td>
+            </tr>
+          </tbody>
+        </table>
 
-                <h4>Receptionist2</h4>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">BAR sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTAL sold by ALL receptionists</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
-                            <td style="border: 1px solid black;">BANCONOTE: €________</td>
-                            <td style="border: 1px solid black;">MONETE: €___________</td>
-                            <td style="border: 1px solid black;">TOTALE: €_____________</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">Firma Receptionist 3____________________</td>
-                        </tr>
-                    </tbody>
-                </table>
+        <h4>Receptionist1</h4>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">COLAZIONE sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">BAR sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTAL sold by ALL receptionists</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
+              <td style="border: 1px solid black;">BANCONOTE: €________</td>
+              <td style="border: 1px solid black;">MONETE: €___________</td>
+              <td style="border: 1px solid black;">TOTALE: €_____________</td>
+            </tr>
+          </tbody>
+        </table>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">Firma Receptionist 2____________________</td>
+            </tr>
+          </tbody>
+        </table>
 
-                <h4>Receptionist3_fino alle 07:00</h4>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">BAR sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTAL sold by ALL receptionists</td>
-                            <td style="border: 1px solid black;">Cash: €</td>
-                            <td style="border: 1px solid black;">C.C: €</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
-                            <td style="border: 1px solid black;">BANCONOTE: €________</td>
-                            <td style="border: 1px solid black;">MONETE: €___________</td>
-                            <td style="border: 1px solid black;">TOTALE: €_____________</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <table style="font-size: 20px;">
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black;">Firma Receptionist 1____________________</td>
-                        </tr>
-                    </tbody>
-                </table>
-            `;
+        <h4>Receptionist2</h4>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">BAR sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTAL sold by ALL receptionists</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
+              <td style="border: 1px solid black;">BANCONOTE: €________</td>
+              <td style="border: 1px solid black;">MONETE: €___________</td>
+              <td style="border: 1px solid black;">TOTALE: €_____________</td>
+            </tr>
+          </tbody>
+        </table>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">Firma Receptionist 3____________________</td>
+            </tr>
+          </tbody>
+        </table>
 
-            return `<table style="font-size: ${fontSizeMap[fontSizeSettings.table1]};">${header}<tbody>${rows}${emptyRows}</tbody></table><br><br>${additionalTable1}<br><br>${newTable}<br><br>${shiftTables}`;
-        }
-    </script>
+        <h4>Receptionist3_fino alle 07:00</h4>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">ROOMS checked-in by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">BAR sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTAL sold by the receptionist</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTAL sold by ALL receptionists</td>
+              <td style="border: 1px solid black;">Cash: €</td>
+              <td style="border: 1px solid black;">C.C: €</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid black;">TOTALE CASSA (sold by all receptionists + fondo cassa)</td>
+              <td style="border: 1px solid black;">BANCONOTE: €________</td>
+              <td style="border: 1px solid black;">MONETE: €___________</td>
+              <td style="border: 1px solid black;">TOTALE: €_____________</td>
+            </tr>
+          </tbody>
+        </table>
+        <table style="font-size: 20px;">
+          <tbody>
+            <tr>
+              <td style="border: 1px solid black;">Firma Receptionist 1____________________</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+
+      return `
+        <table style="font-size: ${fontSizeMap[fontSizeSettings.table1]};">
+          ${header}
+          <tbody>
+            ${rows}
+            ${emptyRows}
+          </tbody>
+        </table>
+        <br><br>
+        ${additionalTable1}
+        <br><br>
+        ${newTable}
+        <br><br>
+        ${shiftTables}
+      `;
+    }
+  </script>
 </body>
 </html>
-
