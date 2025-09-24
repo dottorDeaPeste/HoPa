@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Upload and Process Excel File</title>
+  <!-- Include the libraries to read Excel files -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <style>
     @media print {
       table {
@@ -34,128 +34,154 @@
   <h1>Upload and Process Excel File</h1>
   <form id="uploadForm">
     <label for="freeRooms">Num. of Free rooms: </label>
-    <select id="freeRooms">
-      <option value="0">0</option>
-      <option value="1">1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-      <option value="6">6</option>
-      <option value="7">7</option>
-      <option value="8">8</option>
-      <option value="9">9</option>
-      <option value="10">10</option>
-      <option value="11">11</option>
-      <option value="12">12</option>
-      <option value="13">13</option>
-      <option value="14">14</option>
-      <option value="15">15</option>
-      <option value="16">16</option>
-      <option value="17">17</option>
-      <option value="18">18</option>
-      <option value="19">19</option>
-      <option value="20">20</option>
-      <option value="21">21</option>
-    </select>
+    <select id="freeRooms"></select>
     <br /><br />
     <input type="file" id="fileInput" accept=".xlsx"/>
-    <input type="submit" value="Upload" />
+    <!-- Changed button text to reflect the new behaviour -->
+    <input type="submit" id="uploadBtn" value="Upload" />
   </form>
 
   <script>
-    // Font size settings (small, medium, large)
+    // Populate the freeRooms select with values 0-21
+    (() => {
+      const select = document.getElementById('freeRooms');
+      for (let i = 0; i <= 21; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i;
+        select.appendChild(opt);
+      }
+    })();
+
+    // Configuration for font sizes. Adjust these values to change the size
+    // of the generated tables. Allowed values: 'small', 'medium', 'large'
     const fontSizeSettings = {
-      table1: 'large',  // Options: 'small', 'medium', 'large'
+      table1: 'large',
       table2: 'large',
       table3: 'large',
       table4: 'large'
     };
 
-    // Map of font sizes
+    // Map font size keywords to actual CSS units
     const fontSizeMap = {
       small: '10px',
       medium: '12px',
       large: '20px'
     };
 
+    /**
+     * Handles the form submission. When the button is clicked the file
+     * input is checked; if a file exists we process it, otherwise we
+     * trigger the file picker. After processing, a new window is opened
+     * and a print dialog is invoked.
+     */
     document.getElementById('uploadForm').addEventListener('submit', function (event) {
       event.preventDefault();
-      var fileInput = document.getElementById('fileInput');
-      var file = fileInput.files[0];
-      var freeRooms = document.getElementById('freeRooms').value;
-      if (file) {
-        var reader = new FileReader();
-        reader.onload = function (e) {
-          var data = new Uint8Array(e.target.result);
-          var workbook = XLSX.read(data, { type: 'array' });
-          var sheetName = workbook.SheetNames[0];
-          var worksheet = workbook.Sheets[sheetName];
-          var json = XLSX.utils.sheet_to_json(worksheet);
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      const freeRooms = document.getElementById('freeRooms').value;
 
-          // Process data
-          var processedData = processData(json);
+      // If no file has been selected, trigger the file picker and return
+      if (!file) {
+        fileInput.click();
+        return;
+      }
 
-          // Calculate totals
-          var totalCityTax = processedData.reduce((sum, row) => {
-            let cityTax = parseFloat(row['City Tax']);
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet);
+
+          // Process the raw data from the excel file
+          const processedData = processData(json);
+
+          // Calculate totals for City Tax and Prezzo Totale
+          const totalCityTax = processedData.reduce((sum, row) => {
+            const cityTax = parseFloat(row['City Tax']);
             return sum + (isNaN(cityTax) ? 0 : cityTax);
           }, 0).toFixed(2);
 
-          var totalPrezzoTotale = processedData.reduce((sum, row) => {
-            let prezzoTotale = parseFloat(row['Prezzo Totale']);
+          const totalPrezzoTotale = processedData.reduce((sum, row) => {
+            const prezzoTotale = parseFloat(row['Prezzo Totale']);
             return sum + (isNaN(prezzoTotale) ? 0 : prezzoTotale);
           }, 0).toFixed(2);
 
-          // Convert processed data to HTML file
-          var htmlFileContent = createHtmlFileContent(
+          // Compute a timestamp string for when the file was processed
+          const now = new Date();
+          const dateTimeString = now.toLocaleString();
+
+          // Build the HTML content for the printable report
+          const reportHtml = buildPrintableReport(
             processedData,
             totalCityTax,
             totalPrezzoTotale,
-            freeRooms
+            freeRooms,
+            //dateTimeString
           );
-          var blob = new Blob([htmlFileContent], { type: 'text/html;charset=utf-8' });
-          saveAs(blob, 'processed_data.html');
-        };
-        reader.readAsArrayBuffer(file);
-      }
+
+          // Open a new window, write the report HTML into it and trigger print
+          const printWindow = window.open('', '_blank');
+          printWindow.document.open();
+          printWindow.document.write(reportHtml);
+          printWindow.document.close();
+          // Wait for the new window to finish loading styles before printing
+          printWindow.onload = function () {
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+          };
+
+          // Send a notification email via Formspree
+          sendEmailNotification(dateTimeString);
+        } catch (err) {
+          console.error('Error processing file:', err);
+          alert('An error occurred while processing the file. Please make sure it is a valid .xlsx file.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
     });
 
+    /**
+     * Converts the raw JSON rows from the spreadsheet into the structure
+     * expected by the printout. This function also handles the logic for
+     * detecting the payment type, calculating city tax and total price, and
+     * inserting blank rows for multiple rooms.
+     * @param {Array} data Array of rows from sheet_to_json
+     * @returns {Array} processed data ready to be rendered
+     */
     function processData(data) {
-      var processedData = [];
-
+      const processedData = [];
       data.forEach(row => {
-        // Skip rows where Status is "Canc"
-        if (row.Status === "Canc") {
+        // Skip cancelled reservations
+        if (row.Status === 'Canc') {
           return;
         }
 
-        // 1) Check if 'Tipo' is empty
-        // 2) If 'Provenienza' or 'Tipo' is "be2", handle it as "Hotel Collect"
-        //    otherwise, default to "Provenienza Virtual Card"
-        let tipoTrimmed = (row.Tipo || '').trim().toLowerCase();
-        let provTrimmed = (row.Provenienza || '').trim().toLowerCase();
-
+        // Determine the payment type. If 'Tipo' is empty, infer it from
+        // 'Provenienza' (booking source). A value of "be2" means
+        // Hotel Collect; otherwise assume a virtual card associated with
+        // the provenienza. Normalise to lower case for comparison.
+        const tipoOriginal = (row.Tipo || '').trim().toLowerCase();
+        const provOriginal = (row.Provenienza || '').trim().toLowerCase();
         if (!row.Tipo) {
-          // If the provenienza is be2, set it as Hotel Collect
-          if (provTrimmed === 'be2') {
+          if (provOriginal === 'be2') {
             row.Tipo = 'Hotel Collect';
           } else {
             row.Tipo = row.Provenienza + ' Virtual Card';
           }
         }
-
-        // Additional check if row.Tipo was explicitly "be2"
-        if (tipoTrimmed === 'be2') {
+        if (tipoOriginal === 'be2') {
           row.Tipo = 'Hotel Collect';
         }
 
-        // Now apply the existing transformations
-        // Turn "Pagamento dal cliente" => "Hotel Collect" in bold
-        // Turn any existing "Hotel Collect" => <b>Hotel Collect</b>
-        // (We do this after the be2 check above.)
+        // Convert any instance of "Pagamento dal cliente" or "Hotel Collect"
+        // into a bolded "Hotel Collect" for emphasis.
         if (typeof row.Tipo === 'string') {
-          let lowered = row.Tipo.toLowerCase();
+          const lowered = row.Tipo.toLowerCase();
           if (lowered.includes('pagamento dal cliente')) {
             row.Tipo = '<b>Hotel Collect</b>';
           } else if (lowered.includes('hotel collect')) {
@@ -163,12 +189,12 @@
           }
         }
 
-        // Parse guests and nights
-        var guests = parseGuests(row.Ospiti);
-        var nights = parseInt(row.Notti) || 0;
+        // Parse number of guests and nights
+        const guests = parseGuests(row.Ospiti);
+        const nights = parseInt(row.Notti) || 0;
 
-        // Prepare new row
-        var newRow = {
+        // Create a new row object for the report
+        const newRow = {
           Camera: '',
           'Nome e Cognome': (row.Nome || '') + ' ' + (row.Cognome || ''),
           Persone: guests,
@@ -176,32 +202,32 @@
           Prezzo: parseFloat(row.Totale) || 0,
           Tipo: row.Tipo,
           'City Tax': calculateCityTax(guests, nights),
-          'Prezzo Totale': 0, // We'll compute next line
+          'Prezzo Totale': 0,
           Cash: '',
           'C.C.': '',
           Comments: ''
         };
-
         newRow['Prezzo Totale'] = newRow.Prezzo + newRow['City Tax'];
 
-        // If 'Tipo' indicates a virtual card or "expedia collect", set prezzo to 0
-        // (since typically the card is billed by booking/expedia, not the hotel).
-        let tipoLC = (row.Tipo || '').toLowerCase();
-        if (tipoLC.includes('virtual card') || tipoLC.includes('expedia collect')) {
+        // If the reservation uses a virtual card or Expedia collect, set
+        // the room price to 0 because the payment will not be collected
+        // by the hotel directly. The city tax remains payable by the guest.
+        const tipoLower = (row.Tipo || '').toLowerCase();
+        if (tipoLower.includes('virtual card') || tipoLower.includes('expedia collect')) {
           newRow.Prezzo = 0;
           newRow['Prezzo Totale'] = calculateCityTax(guests, nights);
         }
 
-        // Round to 2 decimals
+        // Round currency values to two decimals for display
         newRow['City Tax'] = newRow['City Tax'].toFixed(2);
         newRow['Prezzo Totale'] = newRow['Prezzo Totale'].toFixed(2);
 
         processedData.push(newRow);
 
-        // If "N. Camere" > 1, add blank rows
-        var numCamere = parseInt(row['N. Camere']) || 1;
+        // If multiple rooms are booked (N. Camere > 1), insert blank rows
+        const numCamere = parseInt(row['N. Camere']) || 1;
         if (numCamere > 1) {
-          for (var i = 1; i < numCamere; i++) {
+          for (let i = 1; i < numCamere; i++) {
             processedData.push({
               Camera: '',
               'Nome e Cognome': (row.Nome || '') + ' ' + (row.Cognome || ''),
@@ -218,29 +244,53 @@
           }
         }
       });
-
       return processedData;
     }
 
+    /**
+     * Parses the guests field, which may be in the format "2+1" meaning
+     * multiple adults and children. Each segment is summed. If the field
+     * cannot be parsed it falls back to zero.
+     * @param {string|number} guests The raw guests value
+     * @returns {number} number of guests
+     */
     function parseGuests(guests) {
       if (typeof guests === 'string') {
         return guests.split('+').reduce((sum, value) => {
-          let num = parseInt(value.trim());
+          const num = parseInt(value.trim());
           return sum + (isNaN(num) ? 0 : num);
         }, 0);
       }
       return parseInt(guests) || 0;
     }
 
+    /**
+     * Calculates the city tax. Venice imposes a city tax of €2.40 per person
+     * per night, up to a maximum of 5 nights.
+     * @param {number} guests Number of guests
+     * @param {number} nights Number of nights
+     * @returns {number} city tax
+     */
     function calculateCityTax(guests, nights) {
-      // City tax only applies up to 5 nights, 2.4 per person per night
-      let validNights = Math.min(nights, 5);
+      const validNights = Math.min(nights, 5);
       return validNights * guests * 2.4;
     }
 
-    function createHtmlFileContent(data, totalCityTax, totalPrezzoTotale, freeRooms) {
-      // Create table header
-      var header = '<thead><tr>' + Object.keys(data[0]).map(col => {
+    /**
+     * Creates the full HTML document for the report, including the date/time
+     * stamp at the top and all sections. The returned string is a complete
+     * HTML document ready to be inserted into a new window for printing.
+     * @param {Array} data Processed report data
+     * @param {string} totalCityTax Sum of city tax for all rows
+     * @param {string} totalPrezzoTotale Sum of total prices for all rows
+     * @param {string} freeRooms Number of free rooms
+     * @param {string} dateTimeString Date/time when the file was processed
+     * @returns {string} full HTML document
+     */
+    function buildPrintableReport(data, totalCityTax, totalPrezzoTotale, freeRooms, dateTimeString) {
+      // Build the header row of the table. City Tax and Prezzo Totale columns
+      // include the totals in the header itself for quick reference.
+      const header = '<thead><tr>' + Object.keys(data[0]).map(col => {
         if (col === 'City Tax') {
           return `<th style="border: 1px solid black;"><b>${col} ${totalCityTax}</b></th>`;
         } else if (col === 'Prezzo Totale') {
@@ -250,23 +300,23 @@
         }
       }).join('') + '</tr></thead>';
 
-      // Create table rows
-      var rows = data.map(row => {
+      // Construct table rows from data
+      const rows = data.map(row => {
         return '<tr>' + Object.values(row).map(val => {
           return `<td style="border: 1px solid black;">${val}</td>`;
         }).join('') + '</tr>';
       }).join('');
 
-      // Add empty rows for freeRooms
-      var emptyRows = '';
-      for (var i = 0; i < freeRooms; i++) {
+      // Append empty rows for the specified number of free rooms
+      let emptyRows = '';
+      for (let i = 0; i < freeRooms; i++) {
         emptyRows += '<tr>' + Object.keys(data[0]).map(() => {
           return '<td style="border: 1px solid black;">&nbsp;</td>';
         }).join('') + '</tr>';
       }
 
-      // Additional sections (Busta Capo, etc.)
-      var additionalTable1 = `
+      // Additional sections for cash handling, breakfast and signatures
+      const additionalTable1 = `
         <table style="font-size: ${fontSizeMap[fontSizeSettings.table2]};">
           <thead>
             <tr>
@@ -295,13 +345,13 @@
         </table>
       `;
 
-      var newTable = `
+      const newTable = `
         <table style="font-size: ${fontSizeMap[fontSizeSettings.table3]};">
           <tr>
-            <td style="border: 1px solid black;">Altro_____________________________________________</td>
+            <td style="border: 1px solid black;">Altro_________________________________________</td>
             <td style="border: 1px solid black;">Cash__</td>
             <td style="border: 1px solid black;">Credit Card</td>
-            <td style="border: 1px solid black;">Altro_____________________________________________</td>
+            <td style="border: 1px solid black;">Altro_________________________________________</td>
             <td style="border: 1px solid black;">Cash__</td>
             <td style="border: 1px solid black;">Credit Card</td>
           </tr>
@@ -324,8 +374,8 @@
         </table>
       `;
 
-      // Separate tables for each shift
-      var shiftTables = `
+      // Build the shift tables for each receptionist
+      const shiftTables = `
         <h3>Receptionist Shifts</h3>
         <h4>Receptionist3_dalle_07:00 alle 08:00</h4>
         <table style="font-size: 20px;">
@@ -489,21 +539,61 @@
         </table>
       `;
 
+      // Assemble the entire HTML document. The date/time is displayed
+      // prominently at the top so that the printout clearly shows when it
+      // was generated.
       return `
-        <table style="font-size: ${fontSizeMap[fontSizeSettings.table1]};">
-          ${header}
-          <tbody>
-            ${rows}
-            ${emptyRows}
-          </tbody>
-        </table>
-        <br><br>
-        ${additionalTable1}
-        <br><br>
-        ${newTable}
-        <br><br>
-        ${shiftTables}
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Processed Data</title>
+          <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid black; padding: 2px; text-align: left; }
+            .date-time { font-size: 14px; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <table style="font-size: ${fontSizeMap[fontSizeSettings.table1]};">
+            ${header}
+            <tbody>
+              ${rows}
+              ${emptyRows}
+            </tbody>
+          </table>
+          <br><br>
+          ${additionalTable1}
+          <br><br>
+          ${newTable}
+          <br><br>
+          ${shiftTables}
+        </body>
+        </html>
       `;
+    }
+
+    /**
+     * Sends a POST request to the Formspree endpoint with the date/time
+     * information. This notification will be delivered to the configured
+     * email address associated with the Formspree form.
+     * @param {string} dateTimeString The timestamp to send in the email
+     */
+    function sendEmailNotification(dateTimeString) {
+      const formData = new FormData();
+      formData.append('message', `Excel file successfully processed at ${dateTimeString}`);
+      formData.append('subject', 'Excel Processing Notification');
+      fetch('https://formspree.io/f/xdkwknyd', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: formData
+      }).then(response => {
+        if (!response.ok) {
+          console.warn('Formspree notification failed:', response.statusText);
+        }
+      }).catch(error => {
+        console.error('Error sending notification:', error);
+      });
     }
   </script>
 </body>
